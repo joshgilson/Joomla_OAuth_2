@@ -101,7 +101,7 @@ class OAuthMailer extends Mail
      * @return  OAuth
      * @since   1.0.0
      */
-    protected function getOAuth(): ?OAuth
+    public function getOAuth(): ?OAuth
     {
         if (empty($this->oauthEmail) || empty($this->oauthAccessToken)) {
             return null;
