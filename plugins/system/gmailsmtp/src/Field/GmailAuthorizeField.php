@@ -43,12 +43,23 @@ class GmailAuthorizeField extends FormField
      */
     protected function getInput(): string
     {
-        $storage     = new TokenStorage(Factory::getDbo());
+        $db = Factory::getDbo();
+        $storage     = new TokenStorage($db);
         $tokens      = $storage->getTokens();
         $isConnected = !empty($tokens) && !empty($tokens['refresh_token']);
 
-        $authorizeUrl  = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=authorize&format=raw';
-        $disconnectUrl = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=disconnect&format=raw';
+        // Get plugin extension_id for redirect back to edit page
+        $query = $db->getQuery(true)
+            ->select('extension_id')
+            ->from('#__extensions')
+            ->where('element = ' . $db->quote('gmailsmtp'))
+            ->where('type = ' . $db->quote('plugin'))
+            ->where('folder = ' . $db->quote('system'));
+        $db->setQuery($query);
+        $extensionId = (int) $db->loadResult();
+
+        $authorizeUrl  = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=authorize&format=raw&eid=' . $extensionId;
+        $disconnectUrl = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=disconnect&format=raw&eid=' . $extensionId;
 
         $html = '<div class="btn-group">';
 
