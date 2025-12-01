@@ -241,6 +241,23 @@ plugins/system/gmailsmtp/
 | Language | 2 (main + sys) |
 | Database | 2 (install + uninstall SQL) |
 
+### Bugs Fixed During Testing
+
+1. **`getOAuth()` visibility error**
+   - **Issue**: `Access level to OAuthMailer::getOAuth() must be public`
+   - **Cause**: PHPMailer's parent class requires the method to be public
+   - **Fix**: Changed `protected function getOAuth()` to `public function getOAuth()`
+
+2. **League OAuth2 RefreshToken class not found**
+   - **Issue**: `Class "League\OAuth2\Client\Grant\RefreshToken" not found`
+   - **Cause**: PHPMailer's OAuth class expects League OAuth2 library classes
+   - **Fix**: Created stub class at `src/OAuth/League/RefreshToken.php` and loaded it early in main plugin
+
+3. **Test email AJAX returning HTML instead of JSON**
+   - **Issue**: `Unexpected token '<', "..."... is not valid JSON` (but email sent successfully)
+   - **Cause**: Joomla outputting HTML headers before our JSON response
+   - **Fix**: Clear ALL output buffers, set JSON header explicitly, use `exit` for clean termination
+
 ### Next Steps for Production
 
 1. **Testing** - Test with real Gmail and Google Workspace accounts
