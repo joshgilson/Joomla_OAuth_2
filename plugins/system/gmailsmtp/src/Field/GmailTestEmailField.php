@@ -54,7 +54,7 @@ class GmailTestEmailField extends FormField
             return $html;
         }
 
-        $testUrl = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=testemail&format=json';
+        $testUrl = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=testemail&format=raw';
 
         $html = '<div class="input-group">';
         $html .= '<input type="email" id="gmailsmtp_test_email" class="form-control" ';
