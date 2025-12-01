@@ -12,6 +12,12 @@ namespace Joomla\Plugin\System\GmailSmtp\Extension;
 
 defined('_JEXEC') or die;
 
+// Load League OAuth2 stub classes required by PHPMailer BEFORE any PHPMailer code runs
+// This must be loaded early so PHP can find the class when PHPMailer's OAuth instantiates it
+if (!class_exists('League\OAuth2\Client\Grant\RefreshToken')) {
+    require_once dirname(__DIR__) . '/OAuth/League/RefreshToken.php';
+}
+
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Log\Log;
