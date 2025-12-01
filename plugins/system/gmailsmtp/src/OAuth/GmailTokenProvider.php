@@ -84,10 +84,13 @@ class GmailTokenProvider
      * This method is called by PHPMailer's OAuth class to get the
      * current access token for SMTP authentication.
      *
+     * @param   mixed  $grant    Grant type (string or League RefreshToken object)
+     * @param   array  $options  Additional options
+     *
      * @return  AccessTokenWrapper
      * @since   1.0.0
      */
-    public function getAccessToken(string $grant, array $options = []): AccessTokenWrapper
+    public function getAccessToken(mixed $grant = null, array $options = []): AccessTokenWrapper
     {
         // If we have a valid access token, return it
         // The token refresh is handled at the plugin level before mail is sent
