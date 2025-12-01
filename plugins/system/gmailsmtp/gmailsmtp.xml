@@ -140,6 +140,42 @@
 
             </fieldset>
 
+            <fieldset name="description" label="PLG_SYSTEM_GMAILSMTP_FIELDSET_DESCRIPTION">
+
+                <field
+                    name="how_it_works"
+                    type="note"
+                    label="PLG_SYSTEM_GMAILSMTP_HOW_IT_WORKS_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_HOW_IT_WORKS_DESC"
+                    class="alert alert-info"
+                />
+
+                <field
+                    name="important_notes"
+                    type="note"
+                    label="PLG_SYSTEM_GMAILSMTP_IMPORTANT_NOTES_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_IMPORTANT_NOTES_DESC"
+                    class="alert alert-warning"
+                />
+
+                <field
+                    name="security_info"
+                    type="note"
+                    label="PLG_SYSTEM_GMAILSMTP_SECURITY_INFO_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_SECURITY_INFO_DESC"
+                    class="alert alert-success"
+                />
+
+                <field
+                    name="troubleshooting"
+                    type="note"
+                    label="PLG_SYSTEM_GMAILSMTP_TROUBLESHOOTING_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_TROUBLESHOOTING_DESC"
+                    class="alert alert-secondary"
+                />
+
+            </fieldset>
+
         </fields>
     </config>
 </extension>
