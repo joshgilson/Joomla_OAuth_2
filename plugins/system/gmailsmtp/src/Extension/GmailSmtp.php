@@ -24,7 +24,9 @@ use Joomla\CMS\Log\Log;
 use Joomla\CMS\Mail\Mail;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\Router\Route;
+use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
+use Joomla\CMS\Http\HttpFactory;
 use Joomla\Event\DispatcherInterface;
 use Joomla\Event\SubscriberInterface;
 use Joomla\Plugin\System\GmailSmtp\OAuth\TokenStorage;
@@ -80,6 +82,12 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
      */
     public function onAfterInitialise(): void
     {
+        // Warn if not using HTTPS (security risk for OAuth)
+        $app = $this->getApplication();
+        if ($this->isConfigured() && !Uri::getInstance()->isSsl() && $app->isClient('administrator')) {
+            Log::add('Gmail SMTP: Site is not using HTTPS. OAuth tokens may be at risk.', Log::WARNING, 'gmailsmtp');
+        }
+
         // Only override if we have valid tokens
         if (!$this->isConfigured() || !$this->hasValidTokens()) {
             return;
@@ -398,7 +406,11 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
      */
     private function handleAuthorize(): void
     {
-        $app = $this->getApplication();
+        $app   = $this->getApplication();
+        $input = $app->getInput();
+
+        // Note: Auth check not required here - this only redirects to Google.
+        // The callback (which stores tokens) has full authentication and CSRF protection.
 
         if (!$this->isConfigured()) {
             $app->enqueueMessage(Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_NOT_CONFIGURED'), 'error');
@@ -413,8 +425,10 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
             'prompt'        => 'consent',
         ]);
 
-        // Store state for CSRF protection
-        $app->getSession()->set('gmailsmtp.oauth_state', $provider->getState());
+        // Store state and extension_id for callback
+        $session = $app->getSession();
+        $session->set('gmailsmtp.oauth_state', $provider->getState());
+        $session->set('gmailsmtp.extension_id', $input->getInt('eid', 0));
 
         $app->redirect($authUrl);
     }
@@ -431,25 +445,34 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
         $input   = $app->getInput();
         $session = $app->getSession();
 
+        // Get extension_id for redirect
+        $extensionId = (int) $session->get('gmailsmtp.extension_id', 0);
+        $redirectUrl = $extensionId > 0
+            ? Uri::root() . 'administrator/index.php?option=com_plugins&view=plugin&layout=edit&extension_id=' . $extensionId
+            : Uri::root() . 'administrator/index.php?option=com_plugins&view=plugins&filter[search]=gmail';
+
         // Verify state for CSRF protection
         $state      = $input->get('state', '', 'string');
         $savedState = $session->get('gmailsmtp.oauth_state', '');
 
         if (empty($state) || $state !== $savedState) {
             $app->enqueueMessage(Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_INVALID_STATE'), 'error');
-            $app->redirect(Uri::root() . 'administrator/index.php?option=com_plugins&view=plugins&filter[search]=gmail');
+            $app->redirect($redirectUrl);
             return;
         }
 
-        // Clear state
+        // Clear session data
         $session->clear('gmailsmtp.oauth_state');
+        $session->clear('gmailsmtp.extension_id');
 
-        // Check for errors
-        $error = $input->get('error', '', 'string');
+        // Check for errors from Google (sanitize for display)
+        $error = $input->get('error', '', 'alnum');
         if (!empty($error)) {
+            // Log full error but show generic message to user
             $errorDesc = $input->get('error_description', $error, 'string');
-            $app->enqueueMessage(Text::sprintf('PLG_SYSTEM_GMAILSMTP_ERROR_OAUTH', $errorDesc), 'error');
-            $app->redirect(Uri::root() . 'administrator/index.php?option=com_plugins&view=plugins&filter[search]=gmail');
+            Log::add('Gmail SMTP OAuth error from Google: ' . $errorDesc, Log::ERROR, 'gmailsmtp');
+            $app->enqueueMessage(Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_OAUTH_GENERIC'), 'error');
+            $app->redirect($redirectUrl);
             return;
         }
 
@@ -457,7 +480,7 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
         $code = $input->get('code', '', 'string');
         if (empty($code)) {
             $app->enqueueMessage(Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_NO_CODE'), 'error');
-            $app->redirect(Uri::root() . 'administrator/index.php?option=com_plugins&view=plugins&filter[search]=gmail');
+            $app->redirect($redirectUrl);
             return;
         }
 
@@ -481,14 +504,15 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
             $storage = $this->getTokenStorage();
             $storage->saveTokens($tokens);
 
-            $app->enqueueMessage(Text::sprintf('PLG_SYSTEM_GMAILSMTP_SUCCESS_CONNECTED', $email), 'success');
+            $app->enqueueMessage(Text::sprintf('PLG_SYSTEM_GMAILSMTP_SUCCESS_CONNECTED', htmlspecialchars($email)), 'success');
 
         } catch (\Exception $e) {
+            // Log full error but show generic message to user
             Log::add('Gmail SMTP OAuth callback error: ' . $e->getMessage(), Log::ERROR, 'gmailsmtp');
-            $app->enqueueMessage(Text::sprintf('PLG_SYSTEM_GMAILSMTP_ERROR_OAUTH', $e->getMessage()), 'error');
+            $app->enqueueMessage(Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_OAUTH_GENERIC'), 'error');
         }
 
-        $app->redirect(Uri::root() . 'administrator/index.php?option=com_plugins&view=plugins&filter[search]=gmail');
+        $app->redirect($redirectUrl);
     }
 
     /**
@@ -499,18 +523,54 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
      */
     private function handleDisconnect(): void
     {
-        $app = $this->getApplication();
+        $app   = $this->getApplication();
+        $input = $app->getInput();
+        $extensionId = $input->getInt('eid', 0);
 
         try {
             $storage = $this->getTokenStorage();
+            $tokens  = $storage->getTokens();
+
+            // Revoke token at Google before deleting locally
+            if (!empty($tokens['access_token'])) {
+                $this->revokeGoogleToken($tokens['access_token']);
+            }
+
             $storage->deleteTokens();
 
             $app->enqueueMessage(Text::_('PLG_SYSTEM_GMAILSMTP_SUCCESS_DISCONNECTED'), 'success');
         } catch (\Exception $e) {
-            $app->enqueueMessage(Text::sprintf('PLG_SYSTEM_GMAILSMTP_ERROR_DISCONNECT', $e->getMessage()), 'error');
+            Log::add('Gmail SMTP disconnect error: ' . $e->getMessage(), Log::ERROR, 'gmailsmtp');
+            $app->enqueueMessage(Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_DISCONNECT_GENERIC'), 'error');
         }
 
-        $app->redirect(Uri::root() . 'administrator/index.php?option=com_plugins&view=plugins&filter[search]=gmail');
+        // Redirect back to plugin edit page
+        if ($extensionId > 0) {
+            $app->redirect(Uri::root() . 'administrator/index.php?option=com_plugins&view=plugin&layout=edit&extension_id=' . $extensionId);
+        } else {
+            $app->redirect(Uri::root() . 'administrator/index.php?option=com_plugins&view=plugins&filter[search]=gmail');
+        }
+    }
+
+    /**
+     * Revoke OAuth token at Google
+     *
+     * @param   string  $token  Access token to revoke
+     *
+     * @return  void
+     * @since   1.0.0
+     */
+    private function revokeGoogleToken(string $token): void
+    {
+        try {
+            $http = HttpFactory::getHttp();
+            $http->post('https://oauth2.googleapis.com/revoke', ['token' => $token], [
+                'Content-Type' => 'application/x-www-form-urlencoded',
+            ]);
+        } catch (\Exception $e) {
+            // Log but don't fail - token will expire eventually
+            Log::add('Gmail SMTP token revocation failed: ' . $e->getMessage(), Log::WARNING, 'gmailsmtp');
+        }
     }
 
     /**
@@ -521,9 +581,10 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
      */
     private function handleTestEmail(): void
     {
-        // Suppress any PHP errors/warnings from being output
+        // Temporarily reduce error reporting to prevent warnings from corrupting
+        // the JSON response. Fatal errors still reported. Restored after output.
         $originalErrorReporting = error_reporting();
-        error_reporting(0);
+        error_reporting(E_ERROR | E_PARSE);
 
         // Clear ALL output buffers
         while (ob_get_level()) {
@@ -535,9 +596,10 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
 
         $app   = $this->getApplication();
         $input = $app->getInput();
-        $testEmail = $input->get('email', '', 'email');
 
         $response = ['success' => false, 'message' => ''];
+
+        $testEmail = $input->get('email', '', 'email');
 
         if (empty($testEmail)) {
             $response['message'] = Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_NO_TEST_EMAIL');
@@ -564,16 +626,30 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
 
                 if ($result === true) {
                     $response['success'] = true;
-                    $response['message'] = Text::sprintf('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_SUCCESS', $testEmail);
+                    $response['message'] = Text::sprintf('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_SUCCESS', htmlspecialchars($testEmail));
                 } else {
                     $response['message'] = Text::_('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_FAILED');
                 }
             } catch (\Throwable $e) {
                 Log::add('Gmail SMTP test email error: ' . $e->getMessage(), Log::ERROR, 'gmailsmtp');
-                $response['message'] = $e->getMessage();
+                $response['message'] = Text::_('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_FAILED');
             }
         }
 
+        $this->outputJsonResponse($response, $originalErrorReporting);
+    }
+
+    /**
+     * Output JSON response and exit
+     *
+     * @param   array  $response              Response data
+     * @param   int    $originalErrorReporting Original error reporting level
+     *
+     * @return  void
+     * @since   1.0.0
+     */
+    private function outputJsonResponse(array $response, int $originalErrorReporting): void
+    {
         // Discard any captured output (debug messages, warnings, etc.)
         ob_end_clean();
 
@@ -584,6 +660,20 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode($response);
         exit;
+    }
+
+    /**
+     * Check if current user is an authenticated administrator
+     *
+     * @return  bool
+     * @since   1.0.0
+     */
+    private function isAdminAuthenticated(): bool
+    {
+        $user = $this->getApplication()->getIdentity();
+
+        // Must be logged in and have admin access
+        return $user !== null && !$user->guest && $user->authorise('core.manage', 'com_plugins');
     }
 
     /**

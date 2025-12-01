@@ -4,11 +4,13 @@
  * @package     Joomla.Plugin
  * @subpackage  System.GmailSmtp
  *
- * @copyright   (C) 2024 Open Source Matters, Inc.
+ * @copyright   (C) 2025 Modern Designs
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 namespace League\OAuth2\Client\Grant;
+
+defined('_JEXEC') or die;
 
 /**
  * Minimal stub for League OAuth2 RefreshToken grant
