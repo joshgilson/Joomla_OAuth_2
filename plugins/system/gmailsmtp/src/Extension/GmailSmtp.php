@@ -521,44 +521,68 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
      */
     private function handleTestEmail(): void
     {
-        // Clear ALL output buffers to ensure clean JSON response
+        // Suppress any PHP errors/warnings from being output
+        $originalErrorReporting = error_reporting();
+        error_reporting(0);
+
+        // Clear ALL output buffers
         while (ob_get_level()) {
             ob_end_clean();
         }
 
-        // Set JSON content type header
-        header('Content-Type: application/json; charset=utf-8');
+        // Start fresh buffer to capture any rogue output
+        ob_start();
 
         $app   = $this->getApplication();
         $input = $app->getInput();
         $testEmail = $input->get('email', '', 'email');
 
+        $response = ['success' => false, 'message' => ''];
+
         if (empty($testEmail)) {
-            echo json_encode(['success' => false, 'message' => Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_NO_TEST_EMAIL')]);
-            exit;
-        }
+            $response['message'] = Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_NO_TEST_EMAIL');
+        } else {
+            try {
+                // Create mailer for test (without debug output)
+                $storage = $this->getTokenStorage();
+                $tokens  = $storage->getTokens();
 
-        try {
-            // Force mailer override
-            $this->overrideMailer();
+                if ($this->tokensNeedRefresh($tokens)) {
+                    $tokens = $this->refreshTokens($tokens);
+                }
 
-            $mailer = Factory::getMailer();
-            $mailer->addRecipient($testEmail);
-            $mailer->setSubject(Text::_('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_SUBJECT'));
-            $mailer->setBody(Text::_('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_BODY'));
+                $mailer = $this->createOAuthMailer($tokens);
 
-            $result = $mailer->Send();
+                // Disable debug for test email to prevent output
+                $mailer->SMTPDebug = 0;
 
-            if ($result === true) {
-                echo json_encode(['success' => true, 'message' => Text::sprintf('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_SUCCESS', $testEmail)]);
-            } else {
-                echo json_encode(['success' => false, 'message' => Text::_('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_FAILED')]);
+                $mailer->addRecipient($testEmail);
+                $mailer->setSubject(Text::_('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_SUBJECT'));
+                $mailer->setBody(Text::_('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_BODY'));
+
+                $result = $mailer->Send();
+
+                if ($result === true) {
+                    $response['success'] = true;
+                    $response['message'] = Text::sprintf('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_SUCCESS', $testEmail);
+                } else {
+                    $response['message'] = Text::_('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_FAILED');
+                }
+            } catch (\Throwable $e) {
+                Log::add('Gmail SMTP test email error: ' . $e->getMessage(), Log::ERROR, 'gmailsmtp');
+                $response['message'] = $e->getMessage();
             }
-        } catch (\Throwable $e) {
-            Log::add('Gmail SMTP test email error: ' . $e->getMessage(), Log::ERROR, 'gmailsmtp');
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
 
+        // Discard any captured output (debug messages, warnings, etc.)
+        ob_end_clean();
+
+        // Restore error reporting
+        error_reporting($originalErrorReporting);
+
+        // Now output clean JSON
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($response);
         exit;
     }
 
