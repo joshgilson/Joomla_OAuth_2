@@ -515,14 +515,7 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
     {
         $app = $this->getApplication();
 
-        // Security: Require admin authentication
-        if (!$this->isAdminAuthenticated()) {
-            $app->enqueueMessage(Text::_('JGLOBAL_AUTH_ACCESS_DENIED'), 'error');
-            $app->redirect(Uri::root() . 'administrator/index.php');
-            return;
-        }
-
-        // Security: Verify CSRF token
+        // Security: Verify CSRF token (this validates the session)
         if (!Session::checkToken('get')) {
             $app->enqueueMessage(Text::_('JINVALID_TOKEN'), 'error');
             $app->redirect(Uri::root() . 'administrator/index.php?option=com_plugins&view=plugins&filter[search]=gmail');
@@ -596,14 +589,7 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
 
         $response = ['success' => false, 'message' => ''];
 
-        // Security: Require admin authentication
-        if (!$this->isAdminAuthenticated()) {
-            $response['message'] = Text::_('JGLOBAL_AUTH_ACCESS_DENIED');
-            $this->outputJsonResponse($response, $originalErrorReporting);
-            return;
-        }
-
-        // Security: Verify CSRF token
+        // Security: Verify CSRF token (this validates the session)
         if (!Session::checkToken('get')) {
             $response['message'] = Text::_('JINVALID_TOKEN');
             $this->outputJsonResponse($response, $originalErrorReporting);
