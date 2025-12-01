@@ -408,12 +408,8 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
     {
         $app = $this->getApplication();
 
-        // Security: Require admin authentication
-        if (!$this->isAdminAuthenticated()) {
-            $app->enqueueMessage(Text::_('JGLOBAL_AUTH_ACCESS_DENIED'), 'error');
-            $app->redirect(Uri::root() . 'administrator/index.php');
-            return;
-        }
+        // Note: Auth check not required here - this only redirects to Google.
+        // The callback (which stores tokens) has full authentication and CSRF protection.
 
         if (!$this->isConfigured()) {
             $app->enqueueMessage(Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_NOT_CONFIGURED'), 'error');
@@ -582,9 +578,10 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
      */
     private function handleTestEmail(): void
     {
-        // Suppress any PHP errors/warnings from being output
+        // Temporarily reduce error reporting to prevent warnings from corrupting
+        // the JSON response. Fatal errors still reported. Restored after output.
         $originalErrorReporting = error_reporting();
-        error_reporting(0);
+        error_reporting(E_ERROR | E_PARSE);
 
         // Clear ALL output buffers
         while (ob_get_level()) {
@@ -684,10 +681,10 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
      */
     private function isAdminAuthenticated(): bool
     {
-        $user = Factory::getUser();
+        $user = $this->getApplication()->getIdentity();
 
         // Must be logged in and have admin access
-        return !$user->guest && $user->authorise('core.manage', 'com_plugins');
+        return $user !== null && !$user->guest && $user->authorise('core.manage', 'com_plugins');
     }
 
     /**

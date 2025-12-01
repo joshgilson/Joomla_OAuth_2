@@ -35,6 +35,10 @@
         </sql>
     </uninstall>
 
+    <updateservers>
+        <server type="extension" name="Gmail SMTP OAuth Updates">https://moderndesigns.studio/updates/gmail-smtp-oauth?format=xml</server>
+    </updateservers>
+
     <config>
         <fields name="params">
             <fieldset name="basic" label="PLG_SYSTEM_GMAILSMTP_FIELDSET_BASIC"
