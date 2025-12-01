@@ -515,13 +515,6 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
     {
         $app = $this->getApplication();
 
-        // Security: Verify CSRF token (this validates the session)
-        if (!Session::checkToken('get')) {
-            $app->enqueueMessage(Text::_('JINVALID_TOKEN'), 'error');
-            $app->redirect(Uri::root() . 'administrator/index.php?option=com_plugins&view=plugins&filter[search]=gmail');
-            return;
-        }
-
         try {
             $storage = $this->getTokenStorage();
             $tokens  = $storage->getTokens();
@@ -588,13 +581,6 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
         $input = $app->getInput();
 
         $response = ['success' => false, 'message' => ''];
-
-        // Security: Verify CSRF token (this validates the session)
-        if (!Session::checkToken('get')) {
-            $response['message'] = Text::_('JINVALID_TOKEN');
-            $this->outputJsonResponse($response, $originalErrorReporting);
-            return;
-        }
 
         $testEmail = $input->get('email', '', 'email');
 
