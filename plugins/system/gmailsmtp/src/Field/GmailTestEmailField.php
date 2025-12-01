@@ -15,6 +15,7 @@ defined('_JEXEC') or die;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Form\FormField;
 use Joomla\CMS\Language\Text;
+use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Plugin\System\GmailSmtp\OAuth\TokenStorage;
 
@@ -54,7 +55,8 @@ class GmailTestEmailField extends FormField
             return $html;
         }
 
-        $testUrl = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=testemail&format=raw';
+        $token = Session::getFormToken();
+        $testUrl = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=testemail&format=raw&' . $token . '=1';
 
         $html = '<div class="input-group">';
         $html .= '<input type="email" id="gmailsmtp_test_email" class="form-control" ';

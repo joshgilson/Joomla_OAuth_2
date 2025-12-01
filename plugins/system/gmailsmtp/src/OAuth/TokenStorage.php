@@ -139,7 +139,7 @@ class TokenStorage
     }
 
     /**
-     * Derive encryption key from Joomla secret
+     * Derive encryption key from Joomla secret using PBKDF2
      *
      * @return  string
      * @since   1.0.0
@@ -148,8 +148,10 @@ class TokenStorage
     {
         $secret = Factory::getApplication()->get('secret', '');
 
-        // Use HKDF to derive a proper encryption key
-        return hash('sha256', $secret . 'gmailsmtp_tokens', true);
+        // Use PBKDF2 for proper key derivation with salt and iterations
+        $salt = hash('sha256', 'gmailsmtp_v1_' . $secret, true);
+
+        return hash_pbkdf2('sha256', $secret, $salt, 100000, 32, true);
     }
 
     /**

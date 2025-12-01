@@ -15,6 +15,7 @@ defined('_JEXEC') or die;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Form\FormField;
 use Joomla\CMS\Language\Text;
+use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Plugin\System\GmailSmtp\OAuth\TokenStorage;
 
@@ -47,8 +48,9 @@ class GmailAuthorizeField extends FormField
         $tokens      = $storage->getTokens();
         $isConnected = !empty($tokens) && !empty($tokens['refresh_token']);
 
+        $token = Session::getFormToken();
         $authorizeUrl  = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=authorize&format=raw';
-        $disconnectUrl = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=disconnect&format=raw';
+        $disconnectUrl = Uri::root() . 'index.php?option=com_ajax&plugin=gmailsmtp&task=disconnect&format=raw&' . $token . '=1';
 
         $html = '<div class="btn-group">';
 
