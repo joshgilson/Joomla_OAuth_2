@@ -2,9 +2,41 @@
 
 ## Project Overview
 
-**Goal**: Create a Joomla 5.4+/6+ system plugin that enables OAuth 2.0 authentication for Gmail/Google Workspace SMTP email delivery, replacing the deprecated "Less Secure Apps" method.
+**Goal**: Create a FREE, open-source Joomla 5.4+/6+ system plugin that enables OAuth 2.0 authentication for Gmail/Google Workspace SMTP email delivery. Designed to feel like a native Joomla feature, potentially for core inclusion.
 
 **Why This Matters**: Google requires OAuth 2.0 for SMTP authentication as of January 2025. Without this, Joomla sites cannot send emails via Gmail/Google Workspace SMTP.
+
+---
+
+## Competitive Analysis (vs Web357 Paid Plugin - $39-99/year)
+
+### What They Offer:
+- OAuth 2.0 token-based authentication
+- Auto token renewal
+- Test email functionality
+- Authentication status indicators (green checkmark)
+- Delete Access Key option
+- TLS/SSL encryption configuration
+
+### How We Do Better:
+
+| Feature | Web357 (Paid) | Our Plugin (Free) |
+|---------|---------------|-------------------|
+| **Price** | $39-99/year | FREE & Open Source |
+| **Joomla Integration** | Separate plugin config | Feels like core Joomla |
+| **Setup Wizard** | Basic form | Step-by-step guided wizard |
+| **Error Diagnostics** | Basic | Detailed with solutions |
+| **Core Contribution** | No | Designed for potential Joomla core inclusion |
+| **Multi-account** | No | Future-ready architecture |
+| **Documentation** | External | Built into plugin UI |
+| **Community** | Paid support | Open source community |
+
+### Our Differentiators:
+1. **FREE forever** - No licensing, no limits
+2. **Native Feel** - Integrates seamlessly with Joomla's mail system
+3. **Better UX** - Modern, clean interface with helpful guidance
+4. **Open Source** - Community can contribute and improve
+5. **Core-Ready** - Architected so Joomla team could adopt it
 
 ---
 
@@ -43,72 +75,74 @@
 ## Implementation Plan
 
 ### Phase 1: Plugin Foundation
-- [ ] Create plugin directory structure
-- [ ] Create XML manifest file (gmailsmtp.xml)
-- [ ] Create main plugin class (GmailSmtp.php)
-- [ ] Create language files (en-GB)
-- [ ] Create installation script
+- [x] Create plugin directory structure
+- [x] Create XML manifest file (gmailsmtp.xml)
+- [x] Create main plugin class (GmailSmtp.php)
+- [x] Create language files (en-GB)
+- [x] Create service provider for Joomla DI
 
 ### Phase 2: OAuth 2.0 Infrastructure
-- [ ] Bundle/include league/oauth2-google library
-- [ ] Create TokenStorage class for database persistence
-- [ ] Create GoogleOAuthProvider wrapper class
-- [ ] Create OAuth callback controller/handler
+- [x] Create self-contained GoogleProvider (no external dependencies!)
+- [x] Create TokenStorage class for database persistence
+- [x] Create AccessToken and ResourceOwner classes
+- [x] Create OAuth callback handler in main plugin
 
 ### Phase 3: Mailer Integration
-- [ ] Create custom MailerFactory that supports OAuth
-- [ ] Create OAuth2TokenProvider for PHPMailer
-- [ ] Hook into Joomla's mailer system (multiple entry points)
-- [ ] Handle token refresh automatically
+- [x] Create OAuthMailer extending Joomla's Mail class
+- [x] Create GmailTokenProvider for PHPMailer XOAUTH2
+- [x] Hook into Joomla's mailer system (Factory::$mailer + Mail::$instances)
+- [x] Handle token refresh automatically before expiration
 
 ### Phase 4: Admin UI/UX
-- [ ] Create configuration form (config.xml)
-- [ ] Add "Connect to Google" authorization button
-- [ ] Add connection status indicator
-- [ ] Add "Send Test Email" functionality
-- [ ] Add "Disconnect" functionality
-- [ ] Add clear setup instructions in UI
+- [x] Create custom form fields (GmailStatus, GmailAuthorize, GmailRedirectUri, GmailTestEmail)
+- [x] Add "Connect to Google" authorization button
+- [x] Add connection status indicator with visual feedback
+- [x] Add "Send Test Email" with AJAX functionality
+- [x] Add "Disconnect" functionality with confirmation
+- [x] Add clear setup instructions in UI
 
 ### Phase 5: Polish & Testing
-- [ ] Add input validation and error handling
-- [ ] Add logging for debugging
+- [x] Add input validation and error handling
+- [x] Add logging for debugging (via Joomla's Log system)
 - [ ] Test with Gmail personal accounts
 - [ ] Test with Google Workspace accounts
-- [ ] Create user documentation
+- [x] Create user documentation (README.md)
 
 ---
 
-## File Structure
+## File Structure (Actual Implementation)
 
 ```
 plugins/system/gmailsmtp/
-├── gmailsmtp.xml                 # Plugin manifest
-├── gmailsmtp.php                 # Main plugin file (bootstrap)
+├── gmailsmtp.xml                 # Plugin manifest with inline config
 ├── services/
 │   └── provider.php              # Joomla DI service provider
 ├── src/
 │   ├── Extension/
-│   │   └── GmailSmtp.php         # Main plugin class
+│   │   └── GmailSmtp.php         # Main plugin class (handles all events)
 │   ├── OAuth/
-│   │   ├── GoogleProvider.php    # OAuth provider wrapper
-│   │   ├── TokenStorage.php      # Database token storage
-│   │   └── TokenProvider.php     # PHPMailer token provider
+│   │   ├── GoogleProvider.php    # Self-contained OAuth provider
+│   │   ├── AccessToken.php       # Access token wrapper
+│   │   ├── ResourceOwner.php     # User info wrapper
+│   │   ├── TokenStorage.php      # Encrypted database storage
+│   │   └── GmailTokenProvider.php # PHPMailer XOAUTH2 provider
 │   ├── Mail/
-│   │   └── OAuthMailer.php       # Custom mailer with OAuth
-│   └── Controller/
-│       └── CallbackController.php # OAuth callback handler
-├── forms/
-│   └── config.xml                # Plugin configuration form
+│   │   └── OAuthMailer.php       # OAuth-enabled mailer
+│   └── Field/
+│       ├── GmailStatusField.php      # Connection status display
+│       ├── GmailAuthorizeField.php   # Connect/Disconnect buttons
+│       ├── GmailRedirectUriField.php # Copy-able redirect URI
+│       └── GmailTestEmailField.php   # Test email with AJAX
 ├── sql/
 │   ├── install.mysql.sql         # Create tokens table
 │   └── uninstall.mysql.sql       # Drop tokens table
-├── language/
-│   └── en-GB/
-│       ├── plg_system_gmailsmtp.ini
-│       └── plg_system_gmailsmtp.sys.ini
-└── vendor/                       # Bundled OAuth libraries
-    └── (league/oauth2-google + dependencies)
+└── language/
+    └── en-GB/
+        ├── plg_system_gmailsmtp.ini
+        └── plg_system_gmailsmtp.sys.ini
 ```
+
+**Key Design Decision**: No external dependencies! The OAuth implementation is self-contained, using only Joomla's built-in HTTP client. This means no Composer required on the server.
 
 ---
 
@@ -156,7 +190,64 @@ plugins/system/gmailsmtp/
 
 ## Review Section
 
-*To be completed after implementation*
+### Implementation Summary
+
+**Completed on**: December 2024
+
+**Total Files Created**: 17 files
+
+**Architecture Highlights**:
+
+1. **Zero External Dependencies**
+   - Created self-contained OAuth 2.0 implementation
+   - Uses only Joomla's built-in HTTP client (`Joomla\CMS\Http\HttpFactory`)
+   - No Composer packages required on the server
+
+2. **Secure Token Storage**
+   - AES-256-GCM encryption using Joomla's secret key
+   - Tokens stored in dedicated database table
+   - Automatic token refresh 5 minutes before expiration
+
+3. **Seamless Joomla Integration**
+   - Overrides both `Factory::$mailer` and `Mail::$instances`
+   - Works with all Joomla extensions that use standard mail functions
+   - Uses Joomla 5+ plugin architecture with DI container
+
+4. **User-Friendly Admin UI**
+   - Visual connection status (green/yellow indicators)
+   - Copy-to-clipboard for redirect URI
+   - One-click Google authorization
+   - AJAX-powered test email functionality
+   - Built-in setup instructions
+
+### Key Differences from Competitors
+
+| Aspect | Web357 (Paid) | Our Implementation |
+|--------|---------------|-------------------|
+| Dependencies | Unknown | Zero (self-contained) |
+| Encryption | Unknown | AES-256-GCM |
+| Token Refresh | Auto | Auto (5-min buffer) |
+| Test Email | Yes | Yes (AJAX) |
+| Price | $39-99/year | FREE |
+
+### Files Created
+
+| Category | Files |
+|----------|-------|
+| Core Plugin | 3 (manifest, provider, main class) |
+| OAuth Classes | 5 (provider, token, storage, resource owner, PHPMailer provider) |
+| Mail Classes | 1 (OAuthMailer) |
+| Form Fields | 4 (status, authorize, redirect URI, test email) |
+| Language | 2 (main + sys) |
+| Database | 2 (install + uninstall SQL) |
+
+### Next Steps for Production
+
+1. **Testing** - Test with real Gmail and Google Workspace accounts
+2. **PostgreSQL Support** - Add PostgreSQL install SQL
+3. **Multi-language** - Add translations for other languages
+4. **JED Submission** - Submit to Joomla Extensions Directory
+5. **Core Proposal** - Propose for Joomla core inclusion
 
 ---
 

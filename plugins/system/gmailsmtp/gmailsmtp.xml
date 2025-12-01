@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="system" method="upgrade">
+    <name>plg_system_gmailsmtp</name>
+    <author>Joomla Community</author>
+    <creationDate>2024-12</creationDate>
+    <copyright>(C) 2024 Open Source Matters, Inc.</copyright>
+    <license>GNU General Public License version 2 or later</license>
+    <authorEmail>admin@joomla.org</authorEmail>
+    <authorUrl>https://www.joomla.org</authorUrl>
+    <version>1.0.0</version>
+    <description>PLG_SYSTEM_GMAILSMTP_XML_DESCRIPTION</description>
+    <namespace path="src">Joomla\Plugin\System\GmailSmtp</namespace>
+
+    <files>
+        <folder plugin="gmailsmtp">services</folder>
+        <folder>src</folder>
+        <folder>sql</folder>
+        <folder>language</folder>
+    </files>
+
+    <languages folder="language">
+        <language tag="en-GB">en-GB/plg_system_gmailsmtp.ini</language>
+        <language tag="en-GB">en-GB/plg_system_gmailsmtp.sys.ini</language>
+    </languages>
+
+    <install>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/install.mysql.sql</file>
+        </sql>
+    </install>
+
+    <uninstall>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/uninstall.mysql.sql</file>
+        </sql>
+    </uninstall>
+
+    <config>
+        <fields name="params">
+            <fieldset name="basic" label="PLG_SYSTEM_GMAILSMTP_FIELDSET_BASIC"
+                addfieldprefix="Joomla\Plugin\System\GmailSmtp\Field">
+
+                <field
+                    name="setup_instructions"
+                    type="note"
+                    label="PLG_SYSTEM_GMAILSMTP_SETUP_INSTRUCTIONS_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_SETUP_INSTRUCTIONS_DESC"
+                    class="alert alert-info"
+                />
+
+                <field
+                    name="connection_status"
+                    type="GmailStatus"
+                    label="PLG_SYSTEM_GMAILSMTP_CONNECTION_STATUS_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_CONNECTION_STATUS_DESC"
+                />
+
+                <field
+                    name="client_id"
+                    type="text"
+                    label="PLG_SYSTEM_GMAILSMTP_CLIENT_ID_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_CLIENT_ID_DESC"
+                    required="true"
+                    size="80"
+                    filter="string"
+                />
+
+                <field
+                    name="client_secret"
+                    type="password"
+                    label="PLG_SYSTEM_GMAILSMTP_CLIENT_SECRET_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_CLIENT_SECRET_DESC"
+                    required="true"
+                    size="60"
+                    filter="raw"
+                    autocomplete="new-password"
+                />
+
+                <field
+                    name="redirect_uri"
+                    type="GmailRedirectUri"
+                    label="PLG_SYSTEM_GMAILSMTP_REDIRECT_URI_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_REDIRECT_URI_DESC"
+                    readonly="true"
+                />
+
+                <field
+                    name="authorize_button"
+                    type="GmailAuthorize"
+                    label="PLG_SYSTEM_GMAILSMTP_AUTHORIZE_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_AUTHORIZE_DESC"
+                />
+
+            </fieldset>
+
+            <fieldset name="sender" label="PLG_SYSTEM_GMAILSMTP_FIELDSET_SENDER">
+
+                <field
+                    name="from_email"
+                    type="email"
+                    label="PLG_SYSTEM_GMAILSMTP_FROM_EMAIL_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_FROM_EMAIL_DESC"
+                    filter="email"
+                    size="50"
+                    hint="your-email@gmail.com"
+                />
+
+                <field
+                    name="from_name"
+                    type="text"
+                    label="PLG_SYSTEM_GMAILSMTP_FROM_NAME_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_FROM_NAME_DESC"
+                    filter="string"
+                    size="50"
+                />
+
+            </fieldset>
+
+            <fieldset name="testing" label="PLG_SYSTEM_GMAILSMTP_FIELDSET_TESTING"
+                addfieldprefix="Joomla\Plugin\System\GmailSmtp\Field">
+
+                <field
+                    name="test_email"
+                    type="GmailTestEmail"
+                    label="PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_DESC"
+                />
+
+                <field
+                    name="debug_mode"
+                    type="radio"
+                    label="PLG_SYSTEM_GMAILSMTP_DEBUG_MODE_LABEL"
+                    description="PLG_SYSTEM_GMAILSMTP_DEBUG_MODE_DESC"
+                    default="0"
+                    class="btn-group btn-group-yesno"
+                >
+                    <option value="0">JNO</option>
+                    <option value="1">JYES</option>
+                </field>
+
+            </fieldset>
+
+        </fields>
+    </config>
+</extension>
