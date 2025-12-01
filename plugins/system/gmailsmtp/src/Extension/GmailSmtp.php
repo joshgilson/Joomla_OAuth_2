@@ -521,25 +521,24 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
      */
     private function handleTestEmail(): void
     {
-        $app   = $this->getApplication();
+        // Clear ALL output buffers to ensure clean JSON response
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
 
-        // Set JSON content type header immediately
+        // Set JSON content type header
         header('Content-Type: application/json; charset=utf-8');
 
-        // Capture any output/errors
-        ob_start();
+        $app   = $this->getApplication();
+        $input = $app->getInput();
+        $testEmail = $input->get('email', '', 'email');
+
+        if (empty($testEmail)) {
+            echo json_encode(['success' => false, 'message' => Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_NO_TEST_EMAIL')]);
+            exit;
+        }
 
         try {
-            $input = $app->getInput();
-            $testEmail = $input->get('email', '', 'email');
-
-            if (empty($testEmail)) {
-                ob_end_clean();
-                echo json_encode(['success' => false, 'message' => Text::_('PLG_SYSTEM_GMAILSMTP_ERROR_NO_TEST_EMAIL')]);
-                $app->close();
-                return;
-            }
-
             // Force mailer override
             $this->overrideMailer();
 
@@ -550,22 +549,17 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
 
             $result = $mailer->Send();
 
-            // Clear any buffered output
-            ob_end_clean();
-
             if ($result === true) {
                 echo json_encode(['success' => true, 'message' => Text::sprintf('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_SUCCESS', $testEmail)]);
             } else {
                 echo json_encode(['success' => false, 'message' => Text::_('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_FAILED')]);
             }
         } catch (\Throwable $e) {
-            // Catch both Exception and Error (for fatal errors like class not found)
-            $errorOutput = ob_get_clean();
-            Log::add('Gmail SMTP test email error: ' . $e->getMessage() . ' | Output: ' . $errorOutput, Log::ERROR, 'gmailsmtp');
+            Log::add('Gmail SMTP test email error: ' . $e->getMessage(), Log::ERROR, 'gmailsmtp');
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
 
-        $app->close();
+        exit;
     }
 
     /**
