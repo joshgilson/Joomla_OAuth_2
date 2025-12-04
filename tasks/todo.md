@@ -268,6 +268,42 @@ plugins/system/gmailsmtp/
 
 ---
 
+---
+
+## Issue: ZOOlander Form Error (December 2024)
+
+### Problem
+When the Gmail SMTP OAuth plugin is enabled, ZOOlander's Essentials for YOOtheme Pro form elements fail with:
+- "Submission failed, please try again or contact us about this issue"
+- "Internal Server Error"
+
+The issue occurs on form submission (AJAX) and only when the plugin is enabled.
+
+### Root Cause Analysis
+
+Based on code review, the issue is likely in the mailer override mechanism. Potential causes:
+
+1. **PHP 7.4 Compatibility Issue** (Most Likely)
+   - `GmailTokenProvider.php` line 93: uses `mixed` type hint (PHP 8.0+)
+   - `TokenStorage.php` line 193: uses `string|false` union type (PHP 8.0+)
+   - If server runs PHP 7.4 (supported by Joomla 4.x), these cause parse errors
+
+2. **Reflection Issues with Mail::$instances**
+   - `$property->getValue()` returns null on first access before array init
+   - Using array access `$instances['Joomla']` on null causes error
+
+3. **Mailer Exception During Send**
+   - If OAuth fails during send, exception bubbles up uncaught
+   - ZOOlander may not catch mailer exceptions gracefully
+
+### Fix Plan
+
+- [ ] 1. Fix PHP 7.4 compatibility - remove PHP 8.0+ type hints
+- [ ] 2. Add defensive null check for Reflection-based mailer override
+- [ ] 3. Test and commit changes
+
+---
+
 ## Resources
 
 - [PHPMailer XOAUTH2 Wiki](https://github.com/PHPMailer/PHPMailer/wiki/Using-Gmail-with-XOAUTH2)
