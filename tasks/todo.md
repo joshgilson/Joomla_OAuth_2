@@ -279,28 +279,52 @@ When the Gmail SMTP OAuth plugin is enabled, ZOOlander's Essentials for YOOtheme
 
 The issue occurs on form submission (AJAX) and only when the plugin is enabled.
 
-### Root Cause Analysis
+### Root Cause Analysis (CONFIRMED)
 
-Based on code review, the issue is likely in the mailer override mechanism. Potential causes:
+**The issue was PHPMailer exceptions not being caught by ZOOlander.**
 
-1. **PHP 7.4 Compatibility Issue** (Most Likely)
-   - `GmailTokenProvider.php` line 93: uses `mixed` type hint (PHP 8.0+)
-   - `TokenStorage.php` line 193: uses `string|false` union type (PHP 8.0+)
-   - If server runs PHP 7.4 (supported by Joomla 4.x), these cause parse errors
+After deep analysis of both ZOOlander Essentials and RSForm source code:
 
-2. **Reflection Issues with Mail::$instances**
-   - `$property->getValue()` returns null on first access before array init
-   - Using array access `$instances['Joomla']` on null causes error
+| Extension | Exception Handling | Compatible? |
+|-----------|-------------------|-------------|
+| **ZOOlander** | Only catches `ValidationException` | ❌ NO |
+| **RSForm** | Catches all `Exception` types | ✅ YES |
 
-3. **Mailer Exception During Send**
-   - If OAuth fails during send, exception bubbles up uncaught
-   - ZOOlander may not catch mailer exceptions gracefully
+**The Problem:**
+1. Our plugin created `new OAuthMailer(true)` - the `true` enables PHPMailer exceptions
+2. When any SMTP error occurs (connection, auth, etc.), PHPMailer throws an exception
+3. ZOOlander's `EmailAction.php` only catches `ValidationException`, not general exceptions
+4. Uncaught exception → 500 Internal Server Error
 
-### Fix Plan
+**Code Evidence:**
+
+ZOOlander `EmailAction.php:32-36`:
+```php
+try {
+    self::send($config);
+} catch (ValidationException $e) {  // Only catches ValidationException!
+    throw ActionRuntimeException::create($this, $e->getMessage(), $e);
+}
+```
+
+RSForm `rsform.php:3138-3312`:
+```php
+try {
+    // ... mail setup ...
+    return $mail->Send();
+} catch (Exception $e) {  // Catches ALL exceptions
+    Factory::getApplication()->enqueueMessage($e->getMessage(), 'warning');
+    return false;
+}
+```
+
+### Fix Applied
 
 - [x] 1. ~~Fix PHP 7.4 compatibility~~ - N/A (plugin requires PHP 8.1+)
 - [x] 2. Add defensive null check for Reflection-based mailer override
-- [ ] 3. User testing to verify fix
+- [x] 3. **Disable exceptions in OAuthMailer** - Changed `new OAuthMailer(true)` to `new OAuthMailer(false)`
+- [x] 4. Improve error logging for test emails using `$mailer->ErrorInfo`
+- [ ] 5. User testing to verify fix
 
 ---
 

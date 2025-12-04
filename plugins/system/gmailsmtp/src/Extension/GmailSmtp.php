@@ -308,7 +308,9 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
         $app    = $this->getApplication();
         $config = $app->getConfig();
 
-        $mailer = new OAuthMailer(true);
+        // Disable exceptions for compatibility with extensions that don't catch them
+        // (e.g., ZOOlander Essentials). Errors are available via $mailer->ErrorInfo.
+        $mailer = new OAuthMailer(false);
         $mailer->isSMTP();
         $mailer->Host       = 'smtp.gmail.com';
         $mailer->Port       = 587;
@@ -633,6 +635,9 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
                     $response['success'] = true;
                     $response['message'] = Text::sprintf('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_SUCCESS', htmlspecialchars($testEmail));
                 } else {
+                    // Log detailed error for debugging
+                    $errorInfo = $mailer->ErrorInfo ?: 'Unknown error';
+                    Log::add('Gmail SMTP test email failed: ' . $errorInfo, Log::ERROR, 'gmailsmtp');
                     $response['message'] = Text::_('PLG_SYSTEM_GMAILSMTP_TEST_EMAIL_FAILED');
                 }
             } catch (\Throwable $e) {
