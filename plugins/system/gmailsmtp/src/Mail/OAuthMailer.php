@@ -116,8 +116,11 @@ class OAuthMailer extends Mail
         );
 
         return new OAuth([
-            'userName'   => $this->oauthEmail,
-            'provider'   => $provider,
+            'userName'     => $this->oauthEmail,
+            'clientSecret' => $this->oauthClientSecret,
+            'clientId'     => $this->oauthClientId,
+            'refreshToken' => $this->oauthRefreshToken,
+            'provider'     => $provider,
         ]);
     }
 
