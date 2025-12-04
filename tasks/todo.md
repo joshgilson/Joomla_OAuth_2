@@ -298,9 +298,9 @@ Based on code review, the issue is likely in the mailer override mechanism. Pote
 
 ### Fix Plan
 
-- [ ] 1. Fix PHP 7.4 compatibility - remove PHP 8.0+ type hints
-- [ ] 2. Add defensive null check for Reflection-based mailer override
-- [ ] 3. Test and commit changes
+- [x] 1. ~~Fix PHP 7.4 compatibility~~ - N/A (plugin requires PHP 8.1+)
+- [x] 2. Add defensive null check for Reflection-based mailer override
+- [ ] 3. User testing to verify fix
 
 ---
 
