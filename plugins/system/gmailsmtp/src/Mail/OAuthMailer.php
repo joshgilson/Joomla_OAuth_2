@@ -12,6 +12,7 @@ namespace Joomla\Plugin\System\GmailSmtp\Mail;
 
 defined('_JEXEC') or die;
 
+use Joomla\CMS\Log\Log;
 use Joomla\CMS\Mail\Mail;
 use PHPMailer\PHPMailer\OAuth;
 use Joomla\Plugin\System\GmailSmtp\OAuth\GmailTokenProvider;
@@ -128,11 +129,47 @@ class OAuthMailer extends Mail
      */
     public function preSend(): bool
     {
-        // Set up OAuth if configured
-        if ($this->AuthType === 'XOAUTH2' && !empty($this->oauthEmail)) {
-            $this->setOAuth($this->getOAuth());
-        }
+        try {
+            // Set up OAuth if configured
+            if ($this->AuthType === 'XOAUTH2' && !empty($this->oauthEmail)) {
+                $this->setOAuth($this->getOAuth());
+            }
 
-        return parent::preSend();
+            return parent::preSend();
+        } catch (\Throwable $e) {
+            $this->ErrorInfo = $e->getMessage();
+            Log::add('Gmail SMTP preSend exception: ' . $e->getMessage(), Log::ERROR, 'gmailsmtp');
+            return false;
+        }
+    }
+
+    /**
+     * Send mail, catching all exceptions to prevent 500 errors
+     *
+     * Extensions like ZOOlander throw their own exceptions on mail failure,
+     * but don't catch exceptions from the mailer itself. This override ensures
+     * any internal exceptions are caught and converted to a false return with
+     * ErrorInfo set, allowing the calling code to handle the failure gracefully.
+     *
+     * @return  bool
+     * @since   1.0.0
+     */
+    public function send(): bool
+    {
+        try {
+            $result = parent::send();
+
+            // Log failures for debugging
+            if ($result !== true && !empty($this->ErrorInfo)) {
+                Log::add('Gmail SMTP send failed: ' . $this->ErrorInfo, Log::ERROR, 'gmailsmtp');
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            // Catch ANY exception and convert to false return
+            $this->ErrorInfo = $e->getMessage();
+            Log::add('Gmail SMTP send exception: ' . $e->getMessage(), Log::ERROR, 'gmailsmtp');
+            return false;
+        }
     }
 }
