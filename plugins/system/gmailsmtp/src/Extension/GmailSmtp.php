@@ -278,7 +278,12 @@ final class GmailSmtp extends CMSPlugin implements SubscriberInterface
             $reflection = new \ReflectionClass(Mail::class);
             $property   = $reflection->getProperty('instances');
             $property->setAccessible(true);
-            $instances           = $property->getValue();
+            $instances = $property->getValue();
+
+            // Defensive: ensure $instances is an array before array access
+            if (!is_array($instances)) {
+                $instances = [];
+            }
             $instances['Joomla'] = $mailer;
             $property->setValue(null, $instances);
 
